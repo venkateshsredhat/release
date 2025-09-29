@@ -35,10 +35,9 @@ az account show
   # Add to PATH
   export PATH="/tmp/tools:$PATH"
 
-
+export USER="cidev"
 
 unset GOFLAGS
 make infra.svc.clean || true
 make infra.mgmt.clean || true
 make infra.region.clean || true
-

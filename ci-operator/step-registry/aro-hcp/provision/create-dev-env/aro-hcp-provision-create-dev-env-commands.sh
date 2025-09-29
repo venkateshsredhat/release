@@ -34,6 +34,7 @@ az account show
   rm -rf /tmp/helm.tar.gz /tmp/linux-amd64
   # Add to PATH
   export PATH="/tmp/tools:$PATH"
-
+  
+export USER="cidev"
 unset GOFLAGS
 make infra.all deployall
