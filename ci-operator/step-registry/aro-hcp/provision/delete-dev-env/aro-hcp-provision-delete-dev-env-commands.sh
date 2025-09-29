@@ -15,7 +15,10 @@ az bicep install
 az bicep version
 az account set --subscription "${CUSTOMER_SUBSCRIPTION}"
 az account show
-
+# installs kubectl and kubelogin
+az aks install-cli
+kubectl version
+kubelogin --version
 # install required tools
 
  # Create tools directory

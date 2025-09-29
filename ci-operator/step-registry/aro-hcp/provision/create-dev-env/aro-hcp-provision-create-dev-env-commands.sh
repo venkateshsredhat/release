@@ -15,7 +15,10 @@ az bicep install
 az bicep version
 az account set --subscription "${CUSTOMER_SUBSCRIPTION}"
 az account show
-
+# installs kubectl and kubelogin
+az aks install-cli
+kubectl version
+kubelogin --version
 # install required tools
 
  # Create tools directory
@@ -34,7 +37,7 @@ az account show
   rm -rf /tmp/helm.tar.gz /tmp/linux-amd64
   # Add to PATH
   export PATH="/tmp/tools:$PATH"
-  
+
 export USER="cidev"
 unset GOFLAGS
 make infra.all deployall
