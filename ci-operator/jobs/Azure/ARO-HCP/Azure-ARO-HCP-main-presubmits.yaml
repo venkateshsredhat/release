@@ -271,17 +271,17 @@ presubmits:
         - mountPath: /etc/report
           name: result-aggregator
           readOnly: true
-    serviceAccountName: ci-operator
-    volumes:
-    - name: manifest-tool-local-pusher
-      secret:
-        secretName: manifest-tool-local-pusher
-    - name: pull-secret
-      secret:
-        secretName: registry-pull-credentials
-    - name: result-aggregator
-      secret:
-        secretName: result-aggregator
+      serviceAccountName: ci-operator
+      volumes:
+      - name: manifest-tool-local-pusher
+        secret:
+          secretName: manifest-tool-local-pusher
+      - name: pull-secret
+        secret:
+          secretName: registry-pull-credentials
+      - name: result-aggregator
+        secret:
+          secretName: result-aggregator
     trigger: (?m)^/test( | .* )create-dev-env,?($|\s.*)
   - agent: kubernetes
     always_run: true
