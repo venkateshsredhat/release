@@ -40,6 +40,7 @@ az account show
   export PATH="/tmp/tools:$PATH"
 
 export USER="cidev"
+export PRINCIPAL_ID=$(az ad sp show --id "${TEST_USER_CLIENT_ID}" --query id -o tsv)
 
 unset GOFLAGS
 make infra.svc.clean || true

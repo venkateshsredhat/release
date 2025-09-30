@@ -22,7 +22,7 @@ az account show
   # installs kubectl and kubelogin
   az aks install-cli --install-location /tmp/tools/kubectl --kubelogin-install-location /tmp/tools/kubelogin
   /tmp/tools/kubectl version
-  /tmp/tools/kubelogin --version    
+  /tmp/tools/kubelogin --version  
   # Install jq
   curl -sL "https://github.com/jqlang/jq/releases/latest/download/jq-linux-amd64" -o /tmp/tools/jq
   chmod +x /tmp/tools/jq
@@ -39,5 +39,6 @@ az account show
   export PATH="/tmp/tools:$PATH"
 
 export USER="cidev"
+export PRINCIPAL_ID=$(az ad sp show --id "${TEST_USER_CLIENT_ID}" --query id -o tsv)
 unset GOFLAGS
 make infra.all deployall
