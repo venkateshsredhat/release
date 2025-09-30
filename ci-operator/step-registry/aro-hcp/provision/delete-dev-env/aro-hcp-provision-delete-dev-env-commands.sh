@@ -15,6 +15,7 @@ az bicep install
 az bicep version
 az account set --subscription "${CUSTOMER_SUBSCRIPTION}"
 az account show
+az config set core.disable_confirm_prompt=true
 
 # install required tools
 
