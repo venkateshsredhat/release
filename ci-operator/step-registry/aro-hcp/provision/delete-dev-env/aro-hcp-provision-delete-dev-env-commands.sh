@@ -15,14 +15,15 @@ az bicep install
 az bicep version
 az account set --subscription "${CUSTOMER_SUBSCRIPTION}"
 az account show
-# installs kubectl and kubelogin
-az aks install-cli
-kubectl version
-kubelogin --version
+
 # install required tools
 
  # Create tools directory
   mkdir -p /tmp/tools
+  # installs kubectl and kubelogin
+  az aks install-cli --install-location /tmp/tools/kubectl --kubelogin-install-location /tmp/tools/kubelogin
+  /tmp/tools/kubectl version
+  /tmp/tools/kubelogin --version
   # Install jq
   curl -sL "https://github.com/jqlang/jq/releases/latest/download/jq-linux-amd64" -o /tmp/tools/jq
   chmod +x /tmp/tools/jq
