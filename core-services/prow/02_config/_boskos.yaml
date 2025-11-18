@@ -39,6 +39,17 @@ resources:
   - us-east-1--alibabacloud-quota-slice-9
   state: free
   type: alibabacloud-quota-slice
+- names:
+  - westus3--aro-hcp-local-e2e-quota-slice-0
+  - westus3--aro-hcp-local-e2e-quota-slice-1
+  - westus3--aro-hcp-local-e2e-quota-slice-2
+  - westus3--aro-hcp-local-e2e-quota-slice-3
+  - westus3--aro-hcp-local-e2e-quota-slice-4
+  - westus3--aro-hcp-local-e2e-quota-slice-5
+  - westus3--aro-hcp-local-e2e-quota-slice-6
+  - westus3--aro-hcp-local-e2e-quota-slice-7
+  state: free
+  type: aro-hcp-local-e2e-quota-slice
 - max-count: 1
   min-count: 1
   state: free
