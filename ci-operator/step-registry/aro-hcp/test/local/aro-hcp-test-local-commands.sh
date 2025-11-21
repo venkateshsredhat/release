@@ -10,8 +10,34 @@ export CUSTOMER_SUBSCRIPTION; CUSTOMER_SUBSCRIPTION=$(cat "${CLUSTER_PROFILE_DIR
 export SUBSCRIPTION_ID; SUBSCRIPTION_ID=$(cat "${CLUSTER_PROFILE_DIR}/subscription-id")
 az login --service-principal -u "${AZURE_CLIENT_ID}" -p "${AZURE_CLIENT_SECRET}" --tenant "${AZURE_TENANT_ID}"
 az account set --subscription "${SUBSCRIPTION_ID}"
+az bicep install || true
+az bicep version
+az account set --subscription "${CUSTOMER_SUBSCRIPTION}"
+az account show
 
-unset GOFLAGS
+kubectl version
+kubelogin --version
+export DEPLOY_ENV="prow"
+
+PRINCIPAL_ID=$(az ad sp show --id "${AZURE_CLIENT_ID}" --query id -o tsv)
+export PRINCIPAL_ID
+unset GOFLAGS 
+BACKEND_DIGEST=$(echo ${BACKEND_IMAGE} | cut -d'@' -f2)
+BACKEND_REPO=$(echo ${BACKEND_IMAGE} | cut -d'@' -f1 | cut -d':' -f1)
+
+  # Set variables similar to your Makefile
+export OVERRIDE_CONFIG_FILE=${OVERRIDE_CONFIG_FILE:-/tmp/backend-override-config-$(date +%s).yaml}
+yq eval -n "
+  .clouds.dev.environments.${DEPLOY_ENV}.defaults.backend.image.repository = \"${BACKEND_REPO}\" |
+  .clouds.dev.environments.${DEPLOY_ENV}.defaults.backend.image.digest = \"${BACKEND_DIGEST}\"
+" > ${OVERRIDE_CONFIG_FILE}
+
+echo "Created override config at: ${OVERRIDE_CONFIG_FILE}"
+cat ${OVERRIDE_CONFIG_FILE}
+
+export LOG_LEVEL=10
+make entrypoint/Region TIMING_OUTPUT=${SHARED_DIR}/steps.yaml DEPLOY_ENV=prow LOG_LEVEL=10
+
 make -C dev-infrastructure/ svc.aks.kubeconfig SVC_KUBECONFIG_FILE=../kubeconfig DEPLOY_ENV=prow
 export KUBECONFIG=kubeconfig
 PIDFILE="/tmp/svc-tunnel.pid"
