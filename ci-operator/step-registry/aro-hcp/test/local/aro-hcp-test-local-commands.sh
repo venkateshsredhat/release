@@ -23,68 +23,17 @@ PRINCIPAL_ID=$(az ad sp show --id "${AZURE_CLIENT_ID}" --query id -o tsv)
 export PRINCIPAL_ID
 unset GOFLAGS
 
-# Set target ACR
-TARGET_ACR="arohcpsvcdev"
-TARGET_ACR_LOGIN_SERVER="arohcpsvcdev.azurecr.io"
-
-
-# Mirror backend image to ACR if needed
-echo "Starting backend image mirroring process..."
 BACKEND_DIGEST=$(echo ${BACKEND_IMAGE} | cut -d'@' -f2)
 REPOSITORY=$(echo ${BACKEND_IMAGE} | cut -d'@' -f1 | cut -d '/' -f2-)
 SOURCE_REGISTRY=$(echo ${BACKEND_IMAGE} | cut -d'@' -f1 | cut -d '/' -f1)
 echo "source registry set to ${SOURCE_REGISTRY} and repo ${REPOSITORY}"
 
-# shortcut mirroring if the source registry is the same as the target ACR
-ACR_DOMAIN_SUFFIX="$(az cloud show --query "suffixes.acrLoginServerEndpoint" --output tsv)"
-if [[ "${SOURCE_REGISTRY}" == "${TARGET_ACR_LOGIN_SERVER}" ]]; then
-    echo "Source and target registry are the same. No mirroring needed."
-    FINAL_BACKEND_REPO="${BACKEND_REPO}"
-    FINAL_BACKEND_DIGEST="${BACKEND_DIGEST}"
-else
-    echo "Mirroring from ${SOURCE_REGISTRY} to ${TARGET_ACR_LOGIN_SERVER}"
-
-    # ACR login to target registry
-    echo "Logging into target ACR ${TARGET_ACR}."
-    if output="$( az acr login --name "${TARGET_ACR}" --expose-token --only-show-errors --output json 2>&1 )"; then
-      RESPONSE="${output}"
-    else
-      echo "Failed to log in to ACR ${TARGET_ACR}: ${output}"
-      exit 1
-    fi
-
-    # ORAS login with ACR token
-    oras login --username 00000000-0000-0000-0000-000000000000 \
-               --password-stdin \
-               "${TARGET_ACR_LOGIN_SERVER}" <<<"$( jq --raw-output .accessToken <<<"${RESPONSE}" )"
-
-    # Check for DRY_RUN
-    if [ "${DRY_RUN:-false}" == "true" ]; then
-        echo "DRY_RUN is enabled. Exiting without making changes."
-        exit 0
-    fi
-
-    # mirror image using oras
-    SRC_IMAGE="${BACKEND_IMAGE}"
-    DIGEST_NO_PREFIX=${BACKEND_DIGEST#sha256:}
-    TARGET_IMAGE="${TARGET_ACR_LOGIN_SERVER}/${REPOSITORY}:${DIGEST_NO_PREFIX}"
-    echo "Mirroring image ${SRC_IMAGE} to ${TARGET_IMAGE}."
-    echo "The image will still be available under it's original digest ${BACKEND_DIGEST} in the target registry."
-
-    oras cp "${SRC_IMAGE}" "${TARGET_IMAGE}"
-
-    # Update variables for override config to use ACR
-    FINAL_BACKEND_REPO="${TARGET_ACR_LOGIN_SERVER}/${REPOSITORY}"
-    FINAL_BACKEND_DIGEST="${BACKEND_DIGEST}"
-
-     echo "final image ${FINAL_BACKEND_REPO} and ${FINAL_BACKEND_DIGEST}"
-fi
-
 # Set variables similar to your Makefile
 export OVERRIDE_CONFIG_FILE=${OVERRIDE_CONFIG_FILE:-/tmp/backend-override-config-$(date +%s).yaml}
 yq eval -n "
-  .clouds.dev.environments.${DEPLOY_ENV}.defaults.backend.image.repository = \"${FINAL_BACKEND_REPO}\" |
-  .clouds.dev.environments.${DEPLOY_ENV}.defaults.backend.image.digest = \"${FINAL_BACKEND_DIGEST}\"
+  .clouds.dev.environments.${DEPLOY_ENV}.defaults.backend.image.registry = \"${SOURCE_REGISTRY}\" |
+  .clouds.dev.environments.${DEPLOY_ENV}.defaults.backend.image.repository = \"${REPOSITORY}\" |
+  .clouds.dev.environments.${DEPLOY_ENV}.defaults.backend.image.digest = \"${BACKEND_DIGEST}\"
 " > ${OVERRIDE_CONFIG_FILE}
 
 echo "Created override config at: ${OVERRIDE_CONFIG_FILE}"
