@@ -46,7 +46,17 @@ else
 
     # ACR login to target registry
     echo "Logging into target ACR ${TARGET_ACR}."
-    az acr login --name "${TARGET_ACR}"
+    if output="$( az acr login --name "${TARGET_ACR}" --expose-token --only-show-errors --output json 2>&1 )"; then
+      RESPONSE="${output}"
+    else
+      echo "Failed to log in to ACR ${TARGET_ACR}: ${output}"
+      exit 1
+    fi
+
+    # ORAS login with ACR token
+    oras login --username 00000000-0000-0000-0000-000000000000 \
+               --password-stdin \
+               "${TARGET_ACR_LOGIN_SERVER}" <<<"$( jq --raw-output .accessToken <<<"${RESPONSE}" )"
 
     # Check for DRY_RUN
     if [ "${DRY_RUN:-false}" == "true" ]; then
