@@ -23,10 +23,34 @@ PRINCIPAL_ID=$(az ad sp show --id "${AZURE_CLIENT_ID}" --query id -o tsv)
 export PRINCIPAL_ID
 unset GOFLAGS
 
+# Set target ACR
+TARGET_ACR="arohcpsvcdev"
+TARGET_ACR_LOGIN_SERVER="arohcpsvcdev.azurecr.io"
+
 BACKEND_DIGEST=$(echo ${BACKEND_IMAGE} | cut -d'@' -f2)
 REPOSITORY=$(echo ${BACKEND_IMAGE} | cut -d'@' -f1 | cut -d '/' -f2-)
 SOURCE_REGISTRY=$(echo ${BACKEND_IMAGE} | cut -d'@' -f1 | cut -d '/' -f1)
 echo "source registry set to ${SOURCE_REGISTRY} and repo ${REPOSITORY}"
+
+DIGEST_NO_PREFIX=${BACKEND_DIGEST#sha256:}
+TARGET_IMAGE="${TARGET_ACR_LOGIN_SERVER}/${REPOSITORY}:${DIGEST_NO_PREFIX}"
+
+    # ACR login to target registry
+    echo "Logging into target ACR ${TARGET_ACR}."
+    if output="$( az acr login --name "${TARGET_ACR}" --expose-token --only-show-errors --output json 2>&1 )"; then
+      RESPONSE="${output}"
+    else
+      echo "Failed to log in to ACR ${TARGET_ACR}: ${output}"
+      exit 1
+    fi
+    # ORAS login with ACR token
+    oras login --username 00000000-0000-0000-0000-000000000000 \
+               --password-stdin \
+               "${TARGET_ACR_LOGIN_SERVER}" <<<"$( jq --raw-output .accessToken <<<"${RESPONSE}" )"
+    echo "Mirroring image ${BACKEND_IMAGE} to ${TARGET_IMAGE}."
+    echo "The image will still be available under it's original digest ${BACKEND_DIGEST} in the target registry."
+
+    oras cp "${BACKEND_IMAGE}" "${TARGET_IMAGE}"
 
 # Set variables similar to your Makefile
 export OVERRIDE_CONFIG_FILE=${OVERRIDE_CONFIG_FILE:-/tmp/backend-override-config-$(date +%s).yaml}
