@@ -55,9 +55,9 @@ TARGET_IMAGE="${TARGET_ACR_LOGIN_SERVER}/${REPOSITORY}:${DIGEST_NO_PREFIX}"
 # Set variables similar to your Makefile
 export OVERRIDE_CONFIG_FILE=${OVERRIDE_CONFIG_FILE:-/tmp/backend-override-config-$(date +%s).yaml}
 yq eval -n "
-  .clouds.dev.environments.${DEPLOY_ENV}.defaults.backend.image.registry = \"${SOURCE_REGISTRY}\" |
+  .clouds.dev.environments.${DEPLOY_ENV}.defaults.backend.image.registry = \"${TARGET_ACR_LOGIN_SERVER}\" |
   .clouds.dev.environments.${DEPLOY_ENV}.defaults.backend.image.repository = \"${REPOSITORY}\" |
-  .clouds.dev.environments.${DEPLOY_ENV}.defaults.backend.image.digest = \"${BACKEND_DIGEST}\"
+  .clouds.dev.environments.${DEPLOY_ENV}.defaults.backend.image.digest = \"${DIGEST_NO_PREFIX}\"
 " > ${OVERRIDE_CONFIG_FILE}
 
 echo "Created override config at: ${OVERRIDE_CONFIG_FILE}"
