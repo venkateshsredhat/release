@@ -35,6 +35,12 @@ echo "source registry set to ${SOURCE_REGISTRY} and repo ${REPOSITORY}"
 DIGEST_NO_PREFIX=${BACKEND_DIGEST#sha256:}
 TARGET_IMAGE="${TARGET_ACR_LOGIN_SERVER}/${REPOSITORY}:${DIGEST_NO_PREFIX}"
 
+    # Setup registry authentication using oc registry login for source registry
+    echo "Setting up registry authentication for source registry."
+    AUTH_JSON=/tmp/registry-config.json
+    cp ~/.docker/config.json "${AUTH_JSON}" 2>/dev/null || echo '{}' > "${AUTH_JSON}"
+    oc registry login --to "${AUTH_JSON}"
+
     # ACR login to target registry
     echo "Logging into target ACR ${TARGET_ACR}."
     if output="$( az acr login --name "${TARGET_ACR}" --expose-token --only-show-errors --output json 2>&1 )"; then
@@ -43,14 +49,18 @@ TARGET_IMAGE="${TARGET_ACR_LOGIN_SERVER}/${REPOSITORY}:${DIGEST_NO_PREFIX}"
       echo "Failed to log in to ACR ${TARGET_ACR}: ${output}"
       exit 1
     fi
-    # ORAS login with ACR token
-    oras login --username 00000000-0000-0000-0000-000000000000 \
+
+    # TARGET_ACR_LOGIN_SERVER already set above, using ACR response to login
+    oras login --registry-config "${AUTH_JSON}" \
+               --username 00000000-0000-0000-0000-000000000000 \
                --password-stdin \
                "${TARGET_ACR_LOGIN_SERVER}" <<<"$( jq --raw-output .accessToken <<<"${RESPONSE}" )"
+
     echo "Mirroring image ${BACKEND_IMAGE} to ${TARGET_IMAGE}."
     echo "The image will still be available under it's original digest ${BACKEND_DIGEST} in the target registry."
 
-    oras cp "${BACKEND_IMAGE}" "${TARGET_IMAGE}"
+    # Use oras cp with registry config for both source and target
+    oras cp "${BACKEND_IMAGE}" "${TARGET_IMAGE}" --from-registry-config "${AUTH_JSON}" --to-registry-config "${AUTH_JSON}"
 
 # Set variables similar to your Makefile
 export OVERRIDE_CONFIG_FILE=${OVERRIDE_CONFIG_FILE:-/tmp/backend-override-config-$(date +%s).yaml}
