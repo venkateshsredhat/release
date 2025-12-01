@@ -31,7 +31,9 @@ BACKEND_DIGEST=$(echo ${BACKEND_IMAGE} | cut -d'@' -f2)
 REPOSITORY=$(echo ${BACKEND_IMAGE} | cut -d'@' -f1 | cut -d '/' -f2-)
 SOURCE_REGISTRY=$(echo ${BACKEND_IMAGE} | cut -d'@' -f1 | cut -d '/' -f1)
 echo "source registry set to ${SOURCE_REGISTRY} and repo ${REPOSITORY}"
-TARGET_IMAGE="${TARGET_ACR_LOGIN_SERVER}/${REPOSITORY}:${BACKEND_DIGEST}"
+
+DIGEST_NO_PREFIX=${BACKEND_DIGEST#sha256:}
+TARGET_IMAGE="${TARGET_ACR_LOGIN_SERVER}/${REPOSITORY}:${DIGEST_NO_PREFIX}"
 
     # Setup registry authentication using oc registry login for source registry
     echo "Setting up registry authentication for source registry."
