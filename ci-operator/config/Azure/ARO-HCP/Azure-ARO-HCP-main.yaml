@@ -51,7 +51,7 @@ images:
     USER root
     RUN mkdir -p /usr/local/bin
     RUN az bicep install && mv /root/.azure/bin/bicep /usr/local/bin
-    RUN az aks install-cli --install-location /usr/local/bin/kubectl --kubelogin-install-location /usr/local/bin/kubelogin
+    RUN az aks install-cli --kubelogin-install-location /usr/local/bin/kubelogin
     RUN curl -LO "https://mirror.openshift.com/pub/openshift-v4/clients/ocp/stable/openshift-client-linux.tar.gz" && \
         tar -xzf openshift-client-linux.tar.gz -C /usr/local/bin oc && \
         rm openshift-client-linux.tar.gz && \

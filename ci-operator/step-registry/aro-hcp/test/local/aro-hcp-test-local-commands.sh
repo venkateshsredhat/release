@@ -15,7 +15,7 @@ az bicep version
 az account set --subscription "${CUSTOMER_SUBSCRIPTION}"
 az account show
 
-kubectl version
+oc version
 kubelogin --version
 export DEPLOY_ENV="prow"
 
@@ -31,9 +31,7 @@ BACKEND_DIGEST=$(echo ${BACKEND_IMAGE} | cut -d'@' -f2)
 REPOSITORY=$(echo ${BACKEND_IMAGE} | cut -d'@' -f1 | cut -d '/' -f2-)
 SOURCE_REGISTRY=$(echo ${BACKEND_IMAGE} | cut -d'@' -f1 | cut -d '/' -f1)
 echo "source registry set to ${SOURCE_REGISTRY} and repo ${REPOSITORY}"
-
-DIGEST_NO_PREFIX=${BACKEND_DIGEST#sha256:}
-TARGET_IMAGE="${TARGET_ACR_LOGIN_SERVER}/${REPOSITORY}:${DIGEST_NO_PREFIX}"
+TARGET_IMAGE="${TARGET_ACR_LOGIN_SERVER}/${REPOSITORY}:${BACKEND_DIGEST}"
 
     # Setup registry authentication using oc registry login for source registry
     echo "Setting up registry authentication for source registry."
@@ -67,7 +65,7 @@ export OVERRIDE_CONFIG_FILE=${OVERRIDE_CONFIG_FILE:-/tmp/backend-override-config
 yq eval -n "
   .clouds.dev.environments.${DEPLOY_ENV}.defaults.backend.image.registry = \"${TARGET_ACR_LOGIN_SERVER}\" |
   .clouds.dev.environments.${DEPLOY_ENV}.defaults.backend.image.repository = \"${REPOSITORY}\" |
-  .clouds.dev.environments.${DEPLOY_ENV}.defaults.backend.image.digest = \"${DIGEST_NO_PREFIX}\"
+  .clouds.dev.environments.${DEPLOY_ENV}.defaults.backend.image.digest = \"${BACKEND_DIGEST}\"
 " > ${OVERRIDE_CONFIG_FILE}
 
 echo "Created override config at: ${OVERRIDE_CONFIG_FILE}"
@@ -87,7 +85,7 @@ REMOTE_PORT=8443
 
 wait_for_service() {
     for i in {1..5}; do
-        if kubectl get svc -n "$NAMESPACE" "$SERVICE" >/dev/null 2>&1; then
+        if oc get svc -n "$NAMESPACE" "$SERVICE" >/dev/null 2>&1; then
             echo "Service $SERVICE found"
             return 0
         else
@@ -101,9 +99,9 @@ wait_for_service() {
 
 start_port_forward() {
     echo "Starting port-forward..."
-    pkill -f "kubectl.*port-forward.*$LOCAL_PORT" || true
+    pkill -f "oc.*port-forward.*$LOCAL_PORT" || true
     sleep 1
-    kubectl port-forward -n "$NAMESPACE" "svc/$SERVICE" \
+    oc port-forward -n "$NAMESPACE" "svc/$SERVICE" \
         "$LOCAL_PORT:$REMOTE_PORT" >/dev/null 2>&1 &
     echo $! > "$PIDFILE"
     sleep 3
@@ -169,7 +167,7 @@ stop_tunnel() {
         kill "$(cat "$PIDFILE")" 2>/dev/null || true
     fi
     # Clean up any remaining port-forwards
-    pkill -f "kubectl.*port-forward.*$LOCAL_PORT" || true
+    pkill -f "oc.*port-forward.*$LOCAL_PORT" || true
     rm -f "$PIDFILE" "$MONITOR_PIDFILE" 2>/dev/null || true
     echo "Port forward stopped"
 }
