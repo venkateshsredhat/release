@@ -38,8 +38,23 @@ TARGET_IMAGE="${TARGET_ACR_LOGIN_SERVER}/${REPOSITORY}:${DIGEST_NO_PREFIX}"
     # Setup registry authentication using oc registry login for source registry
     echo "Setting up registry authentication for source registry."
     AUTH_JSON=/tmp/registry-config.json
-    oc registry login --to "${AUTH_JSON}"
+    IS_CI_REGISTRY=false
+    if imagestream=$(oc get imagestream -n openshift -o yaml 2>/dev/null | yq '.items[0].status.publicDockerImageRepository // "none"' 2>/dev/null); then
+        if [[ "${imagestream}" != "none" ]]; then
+            CI_REGISTRY=$(echo "${imagestream}" | cut -d'/' -f1)
+            if [[ "${SOURCE_REGISTRY}" == "${CI_REGISTRY}" ]]; then
+                echo "source and ci are same "
+                IS_CI_REGISTRY=true
+            fi
+        fi
+    fi
 
+    if [[ "${IS_CI_REGISTRY}" == "true" ]]; then
+        echo "Setting up registry authentication for CI source registry."
+        oc registry login --to "${AUTH_JSON}"
+    else
+        echo "CI was not true "
+    fi    
     # ACR login to target registry
     echo "Logging into target ACR ${TARGET_ACR}."
     if output="$( az acr login --name "${TARGET_ACR}" --expose-token --only-show-errors --output json 2>&1 )"; then
