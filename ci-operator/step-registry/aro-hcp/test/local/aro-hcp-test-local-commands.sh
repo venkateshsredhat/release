@@ -38,7 +38,6 @@ TARGET_IMAGE="${TARGET_ACR_LOGIN_SERVER}/${REPOSITORY}:${DIGEST_NO_PREFIX}"
     # Setup registry authentication using oc registry login for source registry
     echo "Setting up registry authentication for source registry."
     AUTH_JSON=/tmp/registry-config.json
-    cp ~/.docker/config.json "${AUTH_JSON}" 2>/dev/null || echo '{}' > "${AUTH_JSON}"
     oc registry login --to "${AUTH_JSON}"
 
     # ACR login to target registry
@@ -49,7 +48,9 @@ TARGET_IMAGE="${TARGET_ACR_LOGIN_SERVER}/${REPOSITORY}:${DIGEST_NO_PREFIX}"
       echo "Failed to log in to ACR ${TARGET_ACR}: ${output}"
       exit 1
     fi
-
+    echo "find regisry with oc"
+    imagestream=$(oc get imagestream -n openshift -o yaml | yq '.items[0].status.publicDockerImageRepository // "none"')
+    echo "echoeing the ${imagestream}"
     # TARGET_ACR_LOGIN_SERVER already set above, using ACR response to login
     oras login --registry-config "${AUTH_JSON}" \
                --username 00000000-0000-0000-0000-000000000000 \
