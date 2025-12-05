@@ -28,26 +28,46 @@ TARGET_ACR="arohcpsvcdev"
 TARGET_ACR_LOGIN_SERVER="arohcpsvcdev.azurecr.io"
 
 BACKEND_DIGEST=$(echo ${BACKEND_IMAGE} | cut -d'@' -f2)
-REPOSITORY=$(echo ${BACKEND_IMAGE} | cut -d'@' -f1 | cut -d '/' -f2-)
-SOURCE_REGISTRY=$(echo ${BACKEND_IMAGE} | cut -d'@' -f1 | cut -d '/' -f1)
-echo "source registry set to ${SOURCE_REGISTRY} and repo ${REPOSITORY}"
+BACKEND_REPOSITORY=$(echo ${BACKEND_IMAGE} | cut -d'@' -f1 | cut -d '/' -f2-)
+BACKEND_SOURCE_REGISTRY=$(echo ${BACKEND_IMAGE} | cut -d'@' -f1 | cut -d '/' -f1)
 
-DIGEST_NO_PREFIX=${BACKEND_DIGEST#sha256:}
-TARGET_IMAGE="${TARGET_ACR_LOGIN_SERVER}/${REPOSITORY}:${DIGEST_NO_PREFIX}"
+echo "source registry set to ${BACKEND_SOURCE_REGISTRY} and repo ${BACKEND_REPOSITORY} for Backend Image"
 
+BACKEND_DIGEST_NO_PREFIX=${BACKEND_DIGEST#sha256:}
+BACKEND_TARGET_IMAGE="${TARGET_ACR_LOGIN_SERVER}/${BACKEND_REPOSITORY}:${BACKEND_DIGEST_NO_PREFIX}"
+
+
+FRONTEND_DIGEST=$(echo ${FRONTEND_IMAGE} | cut -d'@' -f2)
+FRONTEND_REPOSITORY=$(echo ${FRONTEND_IMAGE} | cut -d'@' -f1 | cut -d '/' -f2-)
+FRONTEND_SOURCE_REGISTRY=$(echo ${FRONTEND_IMAGE} | cut -d'@' -f1 | cut -d '/' -f1)
+
+echo "source registry set to ${FRONTEND_SOURCE_REGISTRY} and repo ${FRONTEND_REPOSITORY} for Fronten Image"
+
+FRONTEND_DIGEST_NO_PREFIX=${FRONTEND_DIGEST#sha256:}
+FRONTEND_TARGET_IMAGE="${TARGET_ACR_LOGIN_SERVER}/${FRONTEND_REPOSITORY}:${FRONTEND_DIGEST_NO_PREFIX}"
+
+# Set up registries that require oc login - append backend and frontend registries
+if [[ -n "${USE_OC_LOGIN_REGISTRIES}" ]]; then
+    USE_OC_LOGIN_REGISTRIES="${USE_OC_LOGIN_REGISTRIES} ${BACKEND_SOURCE_REGISTRY} ${FRONTEND_SOURCE_REGISTRY}"
+else
+    USE_OC_LOGIN_REGISTRIES="${BACKEND_SOURCE_REGISTRY} ${FRONTEND_SOURCE_REGISTRY}"
+fi
+echo "USE_OC_LOGIN_REGISTRIES set to: ${USE_OC_LOGIN_REGISTRIES}"
+
+    IS_CI_REGISTRY=false
+    if [[ -n "${USE_OC_LOGIN_REGISTRIES:-}" ]]; then
+        echo "Checking USE_OC_LOGIN_REGISTRIES: ${USE_OC_LOGIN_REGISTRIES}"
+        for registry in ${USE_OC_LOGIN_REGISTRIES}; do
+            if [[ "${BACKEND_SOURCE_REGISTRY}" == "${registry}" ]]; then
+                IS_CI_REGISTRY=true
+                break
+            fi
+        done
+    fi
+   
     # Setup registry authentication using oc registry login for source registry
     echo "Setting up registry authentication for source registry."
     AUTH_JSON=/tmp/registry-config.json
-    IS_CI_REGISTRY=false
-    if imagestream=$(oc get imagestream -n openshift -o yaml 2>/dev/null | yq '.items[0].status.publicDockerImageRepository // "none"' 2>/dev/null); then
-        if [[ "${imagestream}" != "none" ]]; then
-            CI_REGISTRY=$(echo "${imagestream}" | cut -d'/' -f1)
-            if [[ "${SOURCE_REGISTRY}" == "${CI_REGISTRY}" ]]; then
-                echo "source and ci are same "
-                IS_CI_REGISTRY=true
-            fi
-        fi
-    fi
 
     if [[ "${IS_CI_REGISTRY}" == "true" ]]; then
         echo "Setting up registry authentication for CI source registry."
@@ -63,27 +83,28 @@ TARGET_IMAGE="${TARGET_ACR_LOGIN_SERVER}/${REPOSITORY}:${DIGEST_NO_PREFIX}"
       echo "Failed to log in to ACR ${TARGET_ACR}: ${output}"
       exit 1
     fi
-    echo "find regisry with oc"
-    imagestream=$(oc get imagestream -n openshift -o yaml | yq '.items[0].status.publicDockerImageRepository // "none"')
-    echo "echoeing the ${imagestream}"
     # TARGET_ACR_LOGIN_SERVER already set above, using ACR response to login
     oras login --registry-config "${AUTH_JSON}" \
                --username 00000000-0000-0000-0000-000000000000 \
                --password-stdin \
                "${TARGET_ACR_LOGIN_SERVER}" <<<"$( jq --raw-output .accessToken <<<"${RESPONSE}" )"
 
-    echo "Mirroring image ${BACKEND_IMAGE} to ${TARGET_IMAGE}."
-    echo "The image will still be available under it's original digest ${BACKEND_DIGEST} in the target registry."
+    echo "Mirroring Backend image ${BACKEND_IMAGE} to ${BACKEND_TARGET_IMAGE}."
+    echo "The Backend image will still be available under it's original digest ${BACKEND_DIGEST} in the target registry."
 
     # Use oras cp with registry config for both source and target
-    oras cp "${BACKEND_IMAGE}" "${TARGET_IMAGE}" --from-registry-config "${AUTH_JSON}" --to-registry-config "${AUTH_JSON}"
+    oras cp "${BACKEND_IMAGE}" "${BACKEND_TARGET_IMAGE}" --from-registry-config "${AUTH_JSON}" --to-registry-config "${AUTH_JSON}"
+    oras cp "${FRONTEND_IMAGE}" "${FRONTEND_TARGET_IMAGE}" --from-registry-config "${AUTH_JSON}" --to-registry-config "${AUTH_JSON}"
 
 # Set variables similar to your Makefile
-export OVERRIDE_CONFIG_FILE=${OVERRIDE_CONFIG_FILE:-/tmp/backend-override-config-$(date +%s).yaml}
+export OVERRIDE_CONFIG_FILE=${OVERRIDE_CONFIG_FILE:-/tmp/rp-override-config-$(date +%s).yaml}
 yq eval -n "
   .clouds.dev.environments.${DEPLOY_ENV}.defaults.backend.image.registry = \"${TARGET_ACR_LOGIN_SERVER}\" |
-  .clouds.dev.environments.${DEPLOY_ENV}.defaults.backend.image.repository = \"${REPOSITORY}\" |
-  .clouds.dev.environments.${DEPLOY_ENV}.defaults.backend.image.digest = \"${BACKEND_DIGEST}\"
+  .clouds.dev.environments.${DEPLOY_ENV}.defaults.backend.image.repository = \"${BACKEND_REPOSITORY}\" |
+  .clouds.dev.environments.${DEPLOY_ENV}.defaults.backend.image.digest = \"${BACKEND_DIGEST}\" |
+  .clouds.dev.environments.${DEPLOY_ENV}.defaults.frontend.image.registry = \"${TARGET_ACR_LOGIN_SERVER}\" |
+  .clouds.dev.environments.${DEPLOY_ENV}.defaults.frontend.image.repository = \"${FRONTEND_REPOSITORY}\" |
+  .clouds.dev.environments.${DEPLOY_ENV}.defaults.frontend.image.digest = \"${FRONTEND_DIGEST}\"
 " > ${OVERRIDE_CONFIG_FILE}
 
 echo "Created override config at: ${OVERRIDE_CONFIG_FILE}"

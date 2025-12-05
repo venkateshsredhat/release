@@ -41,6 +41,16 @@ images:
   dockerfile_path: backend/Dockerfile
   from: src
   to: aro-hcp-backend
+- build_args:
+  - name: PLATFORM
+    value: linux/amd64
+  - name: ARO_HCP_REVISION
+    value: ci-sha
+  - name: ARO_HCP_IMAGE_TAG
+    value: ci-test-img
+  dockerfile_path: frontend/Dockerfile
+  from: src
+  to: aro-hcp-frontend  
 - dockerfile_literal: |
     FROM src
     RUN cat /etc/dnf/dnf.conf || true
