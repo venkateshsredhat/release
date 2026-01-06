@@ -70,7 +70,7 @@ images:
     RUN mkdir -p "$(go env GOPATH)" && chmod -R 777 "$(go env GOPATH)"
     RUN mkdir -p "$(go env GOCACHE)" && chmod -R 777 "$(go env GOCACHE)"
     RUN mkdir -p "$(go env GOBIN)" && chmod -R 777 "$(go env GOBIN)"
-    RUN chmod -R 777 /opt/app-root/src/github.com/Azure/ARO-HCP
+    RUN chmod 777 /opt/app-root/src/github.com/Azure/ARO-HCP
   from: src
   inputs:
     src:
